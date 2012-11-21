@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use File::Find;
+my $name = ".permissions.save";
+my $fh;
+
+if (! -e $name) {
+    print "git-preserve-permissions-restore: $name does not exists\n";
+    exit 0
+}
+
+open($fh, "< $name") or die "Could not open file: $name\n";
+
+while ( ! eof($fh) ) {
+    defined( $_ = <$fh> ) or die "readline failed: $!";
+    chomp;
+    my ($mode, $uid, $gid, $file) = split(/:/);
+    if (-e $file) {
+        chown $uid, $gid, $file;
+        chmod $mode, $file;
+    }
+}
+
+close($fh);
