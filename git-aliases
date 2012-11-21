@@ -1,0 +1,5 @@
+[alias]
+    preserve-permissions-save = !.git/commands/git-preserve-permissions-save
+    preserve-permissions-restore = !.git/commands/git-preserve-permissions-restore
+    preserve-permissions-check = !.git/commands/git-preserve-permissions-check
+
