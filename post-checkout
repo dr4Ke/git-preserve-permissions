@@ -1,0 +1,10 @@
+#!/bin/bash
+return_code=0
+if [ -x "${GIT_DIR}/commands/git-preserve-permissions-restore" ]; then
+    "${GIT_DIR}/commands/git-preserve-permissions-restore"
+    return_code="$?"
+fi
+if [ "${return_code}" != "0" ]; then
+    echo "There was an error restoring permissions with '${GIT_DIR}/commands/git-preserve-permissions-restore'"
+    exit ${return_code}
+fi
