@@ -17,7 +17,7 @@ Usage
 
 Save your permissions
 ---------------------
-Use git preserve-permissions-save to save permissions in a file named `.permissions.save`.
+Use git preserve-permissions-save to save permissions in a file named `.git-preserve-permissions`.
 
 Commit this file to the current branch. It will be useful upon branch checkouts.
 

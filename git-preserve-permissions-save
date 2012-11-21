@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use File::Find;
-my $name = ".permissions.save";
+my $name = ".git-preserve-permissions";
 my $fh;
 
 sub wanted {
