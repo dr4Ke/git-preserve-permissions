@@ -5,7 +5,8 @@ my $name = ".permissions.save";
 my $fh;
 
 if (! -e $name) {
-    print "git-preserve-permissions-restore: $name does not exists\n";
+    print "git-preserve-permissions-restore: $name does not exists.\n";
+    print "use git preserve-permissions-save to initialize it.\n";
     exit 0
 }
 

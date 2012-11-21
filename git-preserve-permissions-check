@@ -5,6 +5,12 @@ my $name = ".permissions.save";
 my $fh;
 my @changed_files;
 
+if (! -e $name) {
+    print "git-preserve-permissions-check: $name does not exists.\n";
+    print "use git preserve-permissions-save to initialize it.\n";
+    exit 0
+}
+
 open($fh, "< $name") or die "Could not open file: $name\n";
 
 while ( ! eof($fh) ) {

@@ -11,8 +11,17 @@ sub wanted {
     }
 }
 
+my $fileexists = 'false';
+if (-e $name) {
+    $fileexists = 'true';
+}
+
 open($fh, "> $name") or die "Could not open file: $name\n";
 
 find({wanted => \&wanted, no_chdir => 1}, '.');
 
 close($fh);
+
+if ($fileexists eq 'false') {
+    print "File $name created. You may want to add it to your repository.\n"
+}
