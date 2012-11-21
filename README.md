@@ -10,7 +10,7 @@ Create a `commands` directory in your `.git` directory and copy the `git-preserv
 
 `post-checkout` and `pre-commit` hooks are provided. You can copy them in your repository directory `.git/hooks`.
 
-git-aliases contains aliases for these git commands.
+The file `git-aliases` contains aliases for these git commands. Include them in your git configuration file (`.git/config`)
 
 Usage
 =====
