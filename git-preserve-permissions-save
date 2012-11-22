@@ -4,10 +4,13 @@ use File::Find;
 my $name = ".git-preserve-permissions";
 my $fh;
 
-sub wanted {
-    if (!($File::Find::name eq $File::Find::dir)) {
+sub save_permissions {
+    my $file = $_;
+    if (-e $file || -l $file) {
         my ($mode, $uid, $gid) = (lstat($_))[2,4,5];
         print $fh "$mode:$uid:$gid:$_\n";
+    } else {
+        print "WARNING: A file reported by `git ls-files` doesn't exist: $_\n";
     }
 }
 
@@ -18,7 +21,10 @@ if (-e $name) {
 
 open($fh, "> $name") or die "Could not open file: $name\n";
 
-find({wanted => \&wanted, no_chdir => 1}, '.');
+$output = `git ls-files`;
+foreach ( split("\n", $output) ) {
+    save_permissions $_;
+}
 
 close($fh);
 
