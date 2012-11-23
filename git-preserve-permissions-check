@@ -4,6 +4,8 @@ use File::Find;
 my $name = ".git-preserve-permissions";
 my $fh;
 my @changed_files;
+my %known_files;
+my $unknown_files = 0;
 
 if (! -e $name) {
     print "git-preserve-permissions-check: $name does not exists.\n";
@@ -13,10 +15,12 @@ if (! -e $name) {
 
 open($fh, "< $name") or die "Could not open file: $name\n";
 
+# Check known files for changes
 while ( ! eof($fh) ) {
     defined( $_ = <$fh> ) or die "readline failed: $!";
     chomp;
     my ($mode, $uid, $gid, $file) = split(/:/);
+    $known_files{$file} = 1;
     if (-e $file) {
         my ($actual_mode, $actual_uid, $actual_gid) = (lstat($file))[2,4,5];
         if (($mode != $actual_mode) or
@@ -27,6 +31,16 @@ while ( ! eof($fh) ) {
     }
 }
 
+# Check git ls-files for unknown files
+my $output = `git ls-files`;
+foreach ( split("\n", $output) ) {
+    if (not exists $known_files{$_}) {
+        print "File not known into $name: $_\n";
+        $unknown_files += 1;
+    }
+}
+
+
 close($fh);
 
 if (scalar(@changed_files) != 0) {
@@ -34,5 +48,10 @@ if (scalar(@changed_files) != 0) {
     foreach (@changed_files) {
         print "$_\n";
     }
+    exit 1;
+}
+
+if ($unknown_files > 0) {
+    print "$unknown_files unknown files. Use git preserve-permissions-save to update your permissions database.\n";
     exit 1;
 }
