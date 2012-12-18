@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+$version = "dev";
 use lib (split(/:/, $ENV{GITPERLLIB}));
 
 use File::Basename;
@@ -21,6 +22,7 @@ GetOptions('check'   => \$action_check,
 
 sub usage () {
     print $gpp_name." --check | --save | --restore [--verbose] [--debug]\n";
+    print "Version: ".$version."\n";
     print "\n";
     print "Configuration:\n";
     print "    preserve-permissions.file: file to use (default: .git-preserve-permissions)\n";
