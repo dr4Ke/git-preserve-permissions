@@ -1,11 +1,8 @@
 #!/bin/bash
-return_code=0
-if [ -x "${GIT_DIR}/commands/git-preserve-permissions-check" ]; then
-    "${GIT_DIR}/commands/git-preserve-permissions-check"
-    return_code="$?"
-fi
+git preserve-permissions --check
+return_code="$?"
 if [ "${return_code}" != "0" ]; then
-    echo "Execute git preserve-permissions-save to save new permissions"
-    echo "Execute git preserve-permissions-restore to restore old permissions"
+    echo "Execute 'git preserve-permissions --save' to save new permissions"
+    echo "Execute 'git preserve-permissions --restore' to restore old permissions"
     exit ${return_code}
 fi

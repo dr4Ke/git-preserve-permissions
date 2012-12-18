@@ -1,0 +1,221 @@
+#!/usr/bin/perl
+use lib (split(/:/, $ENV{GITPERLLIB}));
+
+use File::Basename;
+#use integer;
+my $gpp_name = basename($0);
+
+# Arguments
+use Getopt::Long;
+my $action_check = 0;
+my $action_save = 0;
+my $action_restore = 0;
+my $verbose = 0;
+my $debug = 0;
+
+GetOptions('check'   => \$action_check,
+           'save'    => \$action_save,
+           'restore' => \$action_restore,
+           'verbose' => \$verbose,
+           'debug'   => \$debug);
+
+sub usage () {
+    print $gpp_name." --check | --save | --restore [--verbose] [--debug]\n";
+    print "\n";
+    print "Configuration:\n";
+    print "    preserve-permissions.file: file to use (default: .git-preserve-permissions)\n";
+    print "    preserve-permissions.user: save user id (default: false)\n";
+    print "    preserve-permissions.group: save group id (default: false)\n";
+    print "    preserve-permissions.perms: save permissions using this octal\n";
+    print "                                mask (default: 0700)\n";
+}
+ 
+if (not ($action_check || $action_save || $action_restore)) {
+    usage;
+    exit 2;
+}
+
+# git configuration options
+use Git;
+my $repo = Git->repository();
+my %options;
+$options{'file'} = ($repo->config('preserve-permissions.file') or '.git-preserve-permissions');
+$options{'user'} = ($repo->config_bool('preserve-permissions.user') or 0);
+$options{'group'} = ($repo->config_bool('preserve-permissions.group') or 0);
+$options{'perms'} = oct($repo->config('preserve-permissions.perms') or '0700');
+
+print $gpp_name." settings:\n" if $debug;
+print "preserve-permissions.user: ".$options{'user'}."\n" if $debug;
+print "preserve-permissions.group: ".$options{'group'}."\n" if $debug;
+printf "preserve-permissions.perms: %04o\n", $options{'perms'} if $debug;
+
+# Execution functions
+sub convert_from_old_version {
+    my $mode = $_;
+    if ( int($mode) > 7777 ) {
+        printf "%d mode stored in decimal. Converting to %o\n", $mode, $mode if $debug;
+        return $mode;
+    } else {
+        return oct($mode);
+    }
+}
+
+sub gpp_check () {
+    print "Checking...\n" if $verbose;
+    my $name = $options{'file'};
+    my $fh;
+    my %changed_files;
+    my %known_files;
+    my $unknown_files = 0;
+    
+    if (! -e $name) {
+        print $gpp_name.": $name does not exists.\n";
+        print "use '".$gpp_name." --save' to initialize it.\n";
+        return 1;
+    }
+    
+    open($fh, "< $name") or die $gpp_name.": Could not open file: $name\n";
+    
+    # Check known files for changes
+    while ( ! eof($fh) ) {
+        defined( $_ = <$fh> ) or die "readline failed: $!";
+        chomp;
+        my ($mode, $uid, $gid, $file) = split(/:/);
+        my $mode = convert_from_old_version($mode);
+        $known_files{$file} = 1;
+        if (-e $file) {
+            my ($actual_mode, $actual_uid, $actual_gid) = (lstat($file))[2,4,5];
+            my $saved_mode = $actual_mode & $options{'perms'};
+            if ($mode != $saved_mode) {
+                $changed_files{$file} .= sprintf ' masked (%04o) mode changed from %04o to %04o,', $options{'perms'}, $mode, $saved_mode;
+            }
+            if ($options{'user'} and ($uid != $actual_uid)) {
+                $changed_files{$file} .= ' user changed from '.$uid.' to '.$actual_uid.",";
+            }
+            if ($options{'group'} and ($gid  != $actual_gid)) {
+                $changed_files{$file} .= ' group changed from '.$gid.' to '.$actual_gid.",";
+            }
+        }
+    }
+    
+    # Check git ls-files for unknown files
+    my $output = `git ls-files`;
+    foreach ( split("\n", $output) ) {
+        if (not exists $known_files{$_}) {
+            print "File not known into $name: $_\n" if $verbose;
+            $unknown_files += 1;
+        }
+    }
+    
+    
+    close($fh);
+    
+    my $check_code = 0;
+
+    if ($unknown_files > 0) {
+        print "$unknown_files unknown file(s)\n";
+        $check_code = 1;
+    }
+
+    if (scalar(keys %changed_files) != 0) {
+        print "Some file(s) metadata has changed\n";
+        if ($verbose) {
+            while (($key, $value) = each %changed_files) {
+                print "$key:$value\n";
+            }
+        }
+        $check_code = 1;
+    }
+    
+    if (not $verbose and $check_code > 0) {
+        print "Use ".$gpp_name." --verbose for more information\n";
+    }
+    return $check_code;
+}
+
+sub gpp_save () {
+    print "Saving...\n" if $verbose;
+    my $name = $options{'file'};
+    my $fh;
+    
+    my $fileexists = 'false';
+    if (-e $name) {
+        $fileexists = 'true';
+    }
+    
+    open($fh, "> $name") or die "Could not open file: $name\n";
+    
+    $output = `git ls-files`;
+    foreach ( split("\n", $output) ) {
+	my $file = $_;
+        if (-e $file || -l $file) {
+            my ($mode, $uid, $gid) = (lstat($file))[2,4,5];
+            $mode &= $options{'perms'};
+            $uid = '' if (not $options{'user'});
+            $gid = '' if (not $options{'group'});
+            printf $fh "%04o:%s:%s:%s\n", $mode, $uid, $gid, $file;
+        } else {
+            print "WARNING: A file reported by `git ls-files` doesn't exist: $_\n";
+        }
+    }
+    
+    close($fh);
+    
+    if ($fileexists eq 'false') {
+        print "File $name created. You may want to add it to your repository.\n"
+    }
+}
+
+sub gpp_restore () {
+    print "Restoring...\n" if $verbose;
+    my $name = $options{'file'};
+    my $fh;
+    
+    if (! -e $name) {
+        print $gpp_name.": $name does not exists.\n";
+        print "use '".$gpp_name." --save' to initialize it.\n";
+        exit 0
+    }
+    
+    open($fh, "< $name") or die "Could not open file: $name\n";
+    
+    while ( ! eof($fh) ) {
+        defined( $_ = <$fh> ) or die "readline failed: $!";
+        chomp;
+        my ($mode, $uid, $gid, $file) = split(/:/);
+        my $mode = convert_from_old_version($mode);
+        if (-e $file) {
+            if (($options{'user'}) or ($options{'group'})) {
+                $uid = -1 if not ($options{'user'});
+                $gid = -1 if not ($options{'group'});
+                printf "%s: Restoring owner to %s\n", $file, $uid, $gid if $verbose;
+                chown $uid, $gid, $file;
+            }
+            my $actual_mode = (lstat($file))[2];
+            if (($actual_mode & $options{'perms'}) != ($mode & $options{'perms'})) {
+                my $restore_mode = ((07777 & ~$options{'perms'}) & $actual_mode) | ($mode & $options{'perms'});
+                printf "%s: Restoring mode from %04o to %04o\n", $file, $actual_mode, $restore_mode if $verbose;
+                chmod $restore_mode, $file;
+            }
+        }
+    }
+    
+    close($fh);
+}
+
+# Execution
+my $exec_code = 123;
+if ($action_check) {
+    $exec_code = gpp_check;
+} elsif ($action_save) {
+    $exec_code = gpp_save;
+} elsif ($action_restore) {
+    $exec_code = gpp_restore;
+} else {
+    print "This should not happen, no action were supplied.\n";
+    usage;
+    exit 2;
+}
+
+exit $exec_code;
+
