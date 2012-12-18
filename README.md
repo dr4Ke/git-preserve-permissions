@@ -20,6 +20,14 @@ The following configuration options are available:
  - `preserve-permissions.group`: true/false to save/restore gid (defaults to false)
  - `preserve-permissions.perms`: octal mask to select bits to save/restore (defaults to `0700`)
 
+Use the following command to set them:
+
+    git config <option> <value>
+
+Use the following command to unset them:
+
+    git config --unset <option>
+
 Usage
 =====
 
