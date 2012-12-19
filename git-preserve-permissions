@@ -239,10 +239,11 @@ sub gpp_restore () {
         chomp;
         my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
         if (-e $file) {
+            print "Processing file '$file'\n" if $verbose;
             if (($options{'user'}) or ($options{'group'})) {
                 $uid = -1 if not ($options{'user'});
                 $gid = -1 if not ($options{'group'});
-                printf "%s: Restoring owner to %s\n", $file, $uid, $gid if $verbose;
+                printf "%s: Restoring owner:group to %s:%s\n", $file, $uid, $gid if $verbose;
                 chown $uid, $gid, $file;
             }
             my $actual_mode = (lstat($file))[2];
@@ -251,6 +252,8 @@ sub gpp_restore () {
                 printf "%s: Restoring mode from %04o to %04o\n", $file, $actual_mode, $restore_mode if $verbose;
                 chmod $restore_mode, $file;
             }
+        } else {
+            print "WARNING: file '$file' not found\n";
         }
     }
     
