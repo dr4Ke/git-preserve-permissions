@@ -203,7 +203,7 @@ sub gpp_save () {
     $output = `git ls-files`;
     foreach ( split("\n", $output) ) {
 	my $file = $_;
-        if (-e $file || -l $file) {
+        if (-e $file) {
             my ($mode, $uid, $gid) = (lstat($file))[2,4,5];
             $mode &= $options{'perms'};
             $uid = '' if (not $options{'user'});
