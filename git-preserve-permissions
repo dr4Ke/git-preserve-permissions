@@ -66,10 +66,10 @@ $options{'user'} = ($repo->config_bool('preserve-permissions.user') or 0);
 $options{'group'} = ($repo->config_bool('preserve-permissions.group') or 0);
 $options{'perms'} = oct($repo->config('preserve-permissions.perms') or '0700');
 
-print $gpp_name." settings:\n" if $debug;
-print "preserve-permissions.user: ".$options{'user'}."\n" if $debug;
-print "preserve-permissions.group: ".$options{'group'}."\n" if $debug;
-printf "preserve-permissions.perms: %04o\n", $options{'perms'} if $debug;
+print $gpp_name."DEBUG: settings:\n" if $debug;
+print "DEBUG: preserve-permissions.user: ".$options{'user'}."\n" if $debug;
+print "DEBUG: preserve-permissions.group: ".$options{'group'}."\n" if $debug;
+printf "DEBUG: preserve-permissions.perms: %04o\n", $options{'perms'} if $debug;
 
 # Execution functions
 my $old_mode_format = 0;
@@ -80,7 +80,7 @@ sub validate_values {
     my ($mode, $uid, $gid, $file) = @_;
     # Checking old store format (decimal)
     if ( int($mode) > 7777 ) {
-        printf "mode %o stored in decimal form (%d)\n", $mode, $mode if $debug;
+        printf "DEBUG: mode %o stored in decimal form (%d)\n", $mode, $mode if $debug;
         printf "WARNING: Modes are stored in decimal form.\n" if ($old_mode_format == 0);
         $old_mode_format = 1;
         $mode &= 07777;
@@ -111,6 +111,7 @@ sub validate_values {
         }
         $gid = -1;
     }
+    printf "DEBUG: file: %s, %04o, %s, %s\n", $file, $mode, $uid, $gid if $debug;
     return ($mode, $uid, $gid, $file);
 }
 
@@ -159,7 +160,9 @@ sub gpp_check () {
         chomp;
         my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
         $known_files{$file} = 1;
-        if (-e $file) {
+        if (-l $file) {
+            printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
+        } elsif (-e $file) {
             my ($actual_mode, $actual_uid, $actual_gid) = (lstat($file))[2,4,5];
             my $saved_mode = $actual_mode & $options{'perms'};
             if ($mode != $saved_mode) {
@@ -171,6 +174,8 @@ sub gpp_check () {
             if ($options{'group'} and ($gid  != $actual_gid)) {
                 $changed_files{$file} .= ' group changed from '.$gid.' to '.$actual_gid.",";
             }
+        } else {
+            printf "WARNING: file '%s' does not exists\n", $file;
         }
     }
     
@@ -224,14 +229,16 @@ sub gpp_save () {
     $output = `git ls-files`;
     foreach ( split("\n", $output) ) {
 	my $file = $_;
-        if (-e $file) {
+        if (-l $file) {
+            printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
+        } elsif (-e $file) {
             my ($mode, $uid, $gid) = (lstat($file))[2,4,5];
             $mode &= $options{'perms'};
             $uid = '' if (not $options{'user'});
             $gid = '' if (not $options{'group'});
             printf $fh "%04o:%s:%s:%s\n", $mode, $uid, $gid, $file;
         } else {
-            print "WARNING: A file reported by `git ls-files` doesn't exist: $_\n";
+            print "WARNING: A file reported by `git ls-files` doesn't exist: $file\n";
         }
     }
     
@@ -260,8 +267,10 @@ sub gpp_restore () {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
         my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
-        if (-e $file) {
-            print "Processing file '$file'\n" if $verbose;
+        if (-l $file) {
+            printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
+        } elsif (-e $file) {
+            print "DEBUG: Processing file '$file'\n" if $debug;
             if (($options{'user'}) or ($options{'group'})) {
                 $uid = -1 if not ($options{'user'});
                 $gid = -1 if not ($options{'group'});
@@ -277,7 +286,7 @@ sub gpp_restore () {
                 $result |= check_mode($file, $restore_mode);
             }
         } else {
-            print "WARNING: file '$file' not found\n";
+            printf "WARNING: file '%s' does not exists\n", $file;
         }
     }
     
