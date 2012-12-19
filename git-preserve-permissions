@@ -93,25 +93,23 @@ sub validate_values {
         $changed_perms = 1;
         $mode &= $options{'perms'};
     }
-    if ($options{'uid'}) {
+    if ($options{'user'}) {
         $uid = -1 if (not $uid);
     } else {
         if ( $uid ) {
-            printf "WARNING: The preserve-permissions.uid setting has changed.\n" if ($changed_uid == 0);
+            printf "WARNING: The preserve-permissions.user setting has changed.\n" if ($changed_uid == 0);
             $changed_uid = 1;
-        } else {
-            $uid = -1;
         }
+        $uid = -1;
     }
-    if ($options{'gid'}) {
+    if ($options{'group'}) {
         $gid = -1 if (not $gid);
     } else {
         if ( $gid ) {
-            printf "WARNING: The preserve-permissions.gid setting has changed.\n" if ($changed_gid == 0);
+            printf "WARNING: The preserve-permissions.group setting has changed.\n" if ($changed_gid == 0);
             $changed_gid = 1;
-        } else {
-            $gid = -1;
         }
+        $gid = -1;
     }
     return ($mode, $uid, $gid, $file);
 }
