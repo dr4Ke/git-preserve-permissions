@@ -114,6 +114,29 @@ sub validate_values {
     return ($mode, $uid, $gid, $file);
 }
 
+sub check_ids {
+    my ($file, $uid, $gid) = @_;
+    my ($actual_uid, $actual_gid) = (lstat($file))[4,5];
+    my $result = 0;
+    if ($uid != -1 and ($actual_uid != $uid)) {
+        $result = 1
+    }
+    if ($gid != -1 and ($actual_gid != $gid)) {
+        $result = 1
+    }
+    return $result;
+}
+
+sub check_mode {
+    my ($file, $mode) = @_;
+    my ($actual_mode) = (lstat($file))[2] & 07777;
+    my $result = 0;
+    if ($mode != $actual_mode) {
+        $result = 1
+    }
+    return $result;
+}
+
 sub gpp_check () {
     print "Checking...\n" if $verbose;
     my $name = $options{'file'};
@@ -223,6 +246,7 @@ sub gpp_restore () {
     print "Restoring...\n" if $verbose;
     my $name = $options{'file'};
     my $fh;
+    my $result = 0;
     
     if (! -e $name) {
         print $gpp_name.": $name does not exists.\n";
@@ -243,12 +267,14 @@ sub gpp_restore () {
                 $gid = -1 if not ($options{'group'});
                 printf "%s: Restoring owner:group to %s:%s\n", $file, $uid, $gid if $verbose;
                 chown $uid, $gid, $file;
+                $result |= check_ids($file, $uid, $gid);
             }
             my $actual_mode = (lstat($file))[2];
             if (($actual_mode & $options{'perms'}) != ($mode & $options{'perms'})) {
                 my $restore_mode = ((07777 & ~$options{'perms'}) & $actual_mode) | ($mode & $options{'perms'});
                 printf "%s: Restoring mode from %04o to %04o\n", $file, $actual_mode, $restore_mode if $verbose;
                 chmod $restore_mode, $file;
+                $result |= check_mode($file, $restore_mode);
             }
         } else {
             print "WARNING: file '$file' not found\n";
@@ -256,6 +282,7 @@ sub gpp_restore () {
     }
     
     close($fh);
+    return $result;
 }
 
 # Execution
