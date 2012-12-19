@@ -182,7 +182,7 @@ sub gpp_check () {
     # Check git ls-files for unknown files
     my $output = `git ls-files`;
     foreach ( split("\n", $output) ) {
-        if (not exists $known_files{$_}) {
+        if ((not -l $_) and (not exists $known_files{$_})) {
             print "File not known into $name: $_\n" if $verbose;
             $unknown_files += 1;
         }
