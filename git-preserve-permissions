@@ -272,8 +272,6 @@ sub gpp_restore () {
         } elsif (-e $file) {
             print "DEBUG: Processing file '$file'\n" if $debug;
             if (($options{'user'}) or ($options{'group'})) {
-                $uid = -1 if not ($options{'user'});
-                $gid = -1 if not ($options{'group'});
                 printf "%s: Restoring owner:group to %s:%s\n", $file, $uid, $gid if $verbose;
                 chown $uid, $gid, $file;
                 $result |= check_ids($file, $uid, $gid);
