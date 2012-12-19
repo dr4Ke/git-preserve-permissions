@@ -209,7 +209,7 @@ sub gpp_check () {
     }
     
     if (not $verbose and $check_code > 0) {
-        print "Use ".$gpp_name." --verbose for more information\n";
+        print "Use ".$gpp_name." --check --verbose for more information\n";
     }
     return $check_code;
 }
@@ -232,6 +232,7 @@ sub gpp_save () {
         if (-l $file) {
             printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
         } elsif (-e $file) {
+            printf "DEBUG: processing %s\n", $file if $debug;
             my ($mode, $uid, $gid) = (lstat($file))[2,4,5];
             $mode &= $options{'perms'};
             $uid = '' if (not $options{'user'});
