@@ -72,14 +72,48 @@ print "preserve-permissions.group: ".$options{'group'}."\n" if $debug;
 printf "preserve-permissions.perms: %04o\n", $options{'perms'} if $debug;
 
 # Execution functions
-sub convert_from_old_version {
-    my $mode = $_;
+my $old_mode_format = 0;
+my $changed_perms = 0;
+my $changed_uid = 0;
+my $changed_gid = 0;
+sub validate_values {
+    my ($mode, $uid, $gid, $file) = @_;
+    # Checking old store format (decimal)
     if ( int($mode) > 7777 ) {
-        printf "%d mode stored in decimal. Converting to %o\n", $mode, $mode if $debug;
-        return $mode;
+        printf "mode %o stored in decimal form (%d)\n", $mode, $mode if $debug;
+        printf "WARNING: Modes are stored in decimal form.\n" if ($old_mode_format == 0);
+        $old_mode_format = 1;
+        $mode &= 07777;
     } else {
-        return oct($mode);
+        $mode = oct($mode);
     }
+    # Checking changed perms setting
+    if ( $mode != ($mode & $options{'perms'})) {
+        printf "WARNING: The preserve-permissions.perms setting has changed.\n" if ($changed_perms == 0);
+        $changed_perms = 1;
+        $mode &= $options{'perms'};
+    }
+    if ($options{'uid'}) {
+        $uid = -1 if (not $uid);
+    } else {
+        if ( $uid ) {
+            printf "WARNING: The preserve-permissions.uid setting has changed.\n" if ($changed_uid == 0);
+            $changed_uid = 1;
+        } else {
+            $uid = -1;
+        }
+    }
+    if ($options{'gid'}) {
+        $gid = -1 if (not $gid);
+    } else {
+        if ( $gid ) {
+            printf "WARNING: The preserve-permissions.gid setting has changed.\n" if ($changed_gid == 0);
+            $changed_gid = 1;
+        } else {
+            $gid = -1;
+        }
+    }
+    return ($mode, $uid, $gid, $file);
 }
 
 sub gpp_check () {
@@ -102,8 +136,7 @@ sub gpp_check () {
     while ( ! eof($fh) ) {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
-        my ($mode, $uid, $gid, $file) = split(/:/);
-        my $mode = convert_from_old_version($mode);
+        my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
         $known_files{$file} = 1;
         if (-e $file) {
             my ($actual_mode, $actual_uid, $actual_gid) = (lstat($file))[2,4,5];
@@ -204,8 +237,7 @@ sub gpp_restore () {
     while ( ! eof($fh) ) {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
-        my ($mode, $uid, $gid, $file) = split(/:/);
-        my $mode = convert_from_old_version($mode);
+        my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
         if (-e $file) {
             if (($options{'user'}) or ($options{'group'})) {
                 $uid = -1 if not ($options{'user'});
@@ -239,5 +271,9 @@ if ($action_check) {
     exit 2;
 }
 
+if ($old_mode_format or $changed_perms or $changed_uid or $changed_gid) {
+    printf "Please update your database with --save after making sure\n";
+    printf "that your settings and metadata are up to date.\n";
+}
 exit $exec_code;
 
