@@ -61,12 +61,15 @@ if (not ($action_check || $action_save || $action_restore)) {
 use Git;
 my $repo = Git->repository();
 my %options;
+$options{'wc_path'} = $repo->wc_path;
+print $gpp_name." DEBUG: Working copy path: ".$options{'wc_path'}."\n" if $debug;
+chdir $options{'wc_path'};
 $options{'file'} = ($repo->config('preserve-permissions.file') or '.git-preserve-permissions');
 $options{'user'} = ($repo->config_bool('preserve-permissions.user') or 0);
 $options{'group'} = ($repo->config_bool('preserve-permissions.group') or 0);
 $options{'perms'} = oct($repo->config('preserve-permissions.perms') or '0700');
 
-print $gpp_name."DEBUG: settings:\n" if $debug;
+print $gpp_name." DEBUG: settings:\n" if $debug;
 print "DEBUG: preserve-permissions.user: ".$options{'user'}."\n" if $debug;
 print "DEBUG: preserve-permissions.group: ".$options{'group'}."\n" if $debug;
 printf "DEBUG: preserve-permissions.perms: %04o\n", $options{'perms'} if $debug;
