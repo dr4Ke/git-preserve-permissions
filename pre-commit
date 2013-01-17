@@ -2,7 +2,22 @@
 git preserve-permissions --check
 return_code="$?"
 if [ "${return_code}" != "0" ]; then
-    echo "Execute 'git preserve-permissions --save' to save new permissions"
-    echo "Execute 'git preserve-permissions --restore' to restore old permissions"
+    autosave=$(git config --bool --get preserve-permissions.autosave)
+    autosavePatch=$(git config --bool --get preserve-permissions.autosavePatch)
+    [ -z "${autosave}" ] && autosave="false"
+    [ -z "${autosavePatch}" ] && autosavePatch="true"
+    if [ "${autosave}" = "false" ]; then
+        echo "Execute 'git preserve-permissions --save' to save new permissions"
+        echo "Execute 'git preserve-permissions --restore' to restore old permissions"
+    elif [ "${autosavePatch}" = "true" ]; then
+        git preserve-permissions --save
+        exec < /dev/tty
+        git add -p "/.git-preserve-permissions"
+        echo "Permissions saved, please redo your commit"
+    else
+        git preserve-permissions --save
+        git add "/.git-preserve-permissions"
+        echo "Permissions saved, please redo your commit"
+    fi
     exit ${return_code}
 fi
