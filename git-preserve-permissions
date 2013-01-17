@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # git-preserve-permissions stores/restores metadata in a git repository
-#    git-preserve-permissions Copyright (C) 2012 Christophe Drevet <christophe.drevet@gmail.com>
+#    git-preserve-permissions Copyright (C) 2012,2013 Christophe Drevet <christophe.drevet@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ sub usage () {
     print "    preserve-permissions.perms: save permissions using this octal\n";
     print "                                mask (default: 0700)\n";
     print "\n";
-    print "git-preserve-permissions Copyright (C) 2012 Christophe Drevet\n";
+    print "git-preserve-permissions Copyright (C) 2012,2013 Christophe Drevet\n";
     print "                                            <christophe.drevet\@gmail.com>\n";
     print "This program comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n";
     print "are welcome to redistribute it under certain conditions; see COPYRIGHT file.\n";
