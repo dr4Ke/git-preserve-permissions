@@ -19,6 +19,8 @@ The following configuration options are available:
  - `preserve-permissions.user`: true/false to save/restore uid (defaults to false)
  - `preserve-permissions.group`: true/false to save/restore gid (defaults to false)
  - `preserve-permissions.perms`: octal mask to select bits to save/restore (defaults to `0700`)
+ - `preserve-permissions.autosave`: true/false to automatically save new permissions on commit (defaults to false)
+ - `preserve-permissions.autosavePatch`: true/false to use `git add -p` when autosave is on (defaults to true)
 
 Use the following command to set them:
 
