@@ -8,7 +8,7 @@ Installation
 
 Copy `git-preserve-permissions` somewhere in your PATH (maybe `~/bin`).
 
-`post-checkout` and `pre-commit` hooks are provided. You can copy them in your repository directory `.git/hooks`.
+`post-checkout`, `post-merge` and `pre-commit` hooks are provided. You can copy them in your repository directory `.git/hooks`.
 
 Configuration
 =============
