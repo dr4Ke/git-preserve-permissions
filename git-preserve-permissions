@@ -167,9 +167,11 @@ sub gpp_check () {
             printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
         } elsif (-e $file) {
             my ($actual_mode, $actual_uid, $actual_gid) = (lstat($file))[2,4,5];
-            my $saved_mode = $actual_mode & $options{'perms'};
-            if ($mode != $saved_mode) {
-                $changed_files{$file} .= sprintf ' masked (%04o) mode changed from %04o to %04o,', $options{'perms'}, $mode, $saved_mode;
+            my $actual_masked_mode = $actual_mode & $options{'perms'};
+            my $saved_mode = $mode & $options{'perms'};
+            if ($saved_mode != $actual_masked_mode) {
+                $changed_files{$file} .= sprintf ' masked (%04o) mode changed from %04o to %04o,',
+                                                 $options{'perms'}, $actual_masked_mode, $saved_mode;
             }
             if ($options{'user'} and ($uid != $actual_uid)) {
                 $changed_files{$file} .= ' user changed from '.$uid.' to '.$actual_uid.",";
@@ -276,6 +278,8 @@ sub gpp_restore () {
         } elsif (-e $file) {
             print "DEBUG: Processing file '$file'\n" if $debug;
             if (($options{'user'}) or ($options{'group'})) {
+                $uid = '' if (not $options{'user'});
+                $gid = '' if (not $options{'group'});
                 printf "%s: Restoring owner:group to %s:%s\n", $file, $uid, $gid if $verbose;
                 chown $uid, $gid, $file;
                 $result |= check_ids($file, $uid, $gid);
