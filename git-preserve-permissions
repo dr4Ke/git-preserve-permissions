@@ -175,6 +175,7 @@ sub gpp_check () {
     while ( ! eof($fh) ) {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
+        next if (/^#/);
         my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
         $known_files{$file} = 1;
         if (-l $file) {
@@ -284,6 +285,7 @@ sub gpp_restore () {
     while ( ! eof($fh) ) {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
+        next if (/^#/);
         my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
         if (-l $file) {
             printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
