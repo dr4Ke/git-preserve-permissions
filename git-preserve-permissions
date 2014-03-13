@@ -15,6 +15,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 $version = "dev";
+$dataversion = "1.3";
 use lib (split(/:/, $ENV{GITPERLLIB}));
 
 use File::Basename;
@@ -51,11 +52,6 @@ sub usage () {
     print "This program comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n";
     print "are welcome to redistribute it under certain conditions; see COPYRIGHT file.\n";
 }
- 
-if (not ($action_check || $action_save || $action_restore)) {
-    usage;
-    exit 2;
-}
 
 # git configuration options
 use Git;
@@ -74,9 +70,33 @@ print "DEBUG: preserve-permissions.user: ".$options{'user'}."\n" if $debug;
 print "DEBUG: preserve-permissions.group: ".$options{'group'}."\n" if $debug;
 printf "DEBUG: preserve-permissions.perms: %04o\n", $options{'perms'} if $debug;
 
+# Check database version
+my $name = $options{'file'};
+my $fh;
+if (-e $name) {
+    open($fh, "< $name") or die $gpp_name.": Could not open file: $name\n";
+    my $firstline = <$fh>;
+    close($fh);
+    if ($firstline =~ /^#FORMAT:/) {
+        $firstline =~ /^#FORMAT:([0-9\.]+)$/;
+        my $filever = $1;
+        if ($filever != $dataversion) {
+            printf "WARNING: Incorrect database version ($filever != $dataversion)\n";
+            printf "         Please make sure to update the database.\n";
+        }
+    } else {
+        printf "WARNING: Database version outdated (<1.3).\n";
+        printf "         Please make sure to update the database.\n";
+    }
+}
+
+if (not ($action_check || $action_save || $action_restore)) {
+    usage;
+    exit 2;
+}
+
 # Execution functions
 my $old_mode_format = 0;
-my $changed_perms = 0;
 my $changed_uid = 0;
 my $changed_gid = 0;
 sub validate_values {
@@ -89,12 +109,6 @@ sub validate_values {
         $mode &= 07777;
     } else {
         $mode = oct($mode);
-    }
-    # Checking changed perms setting
-    if ( $mode != ($mode & $options{'perms'})) {
-        printf "WARNING: The preserve-permissions.perms setting has changed.\n" if ($changed_perms == 0);
-        $changed_perms = 1;
-        $mode &= $options{'perms'};
     }
     if ($options{'user'}) {
         $uid = -1 if (not $uid);
@@ -230,6 +244,7 @@ sub gpp_save () {
     }
     
     open($fh, "> $name") or die "Could not open file: $name\n";
+    printf $fh "#FORMAT:%s\n", $dataversion;
     
     $output = `git ls-files`;
     foreach ( split("\n", $output) ) {
