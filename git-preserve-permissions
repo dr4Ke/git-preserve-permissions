@@ -239,10 +239,7 @@ sub gpp_save () {
         } elsif (-e $file) {
             printf "DEBUG: processing %s\n", $file if $debug;
             my ($mode, $uid, $gid) = (lstat($file))[2,4,5];
-            $mode &= $options{'perms'};
-            $uid = '' if (not $options{'user'});
-            $gid = '' if (not $options{'group'});
-            printf $fh "%04o:%s:%s:%s\n", $mode, $uid, $gid, $file;
+            printf $fh "%04o:%s:%s:%s\n", $mode & 07777, $uid, $gid, $file;
         } else {
             print "WARNING: A file reported by `git ls-files` doesn't exist: $file\n";
         }
