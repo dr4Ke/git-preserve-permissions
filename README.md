@@ -10,6 +10,13 @@ Copy `git-preserve-permissions` somewhere in your PATH (maybe `~/bin`).
 
 `post-checkout`, `post-merge` and `pre-commit` hooks are provided. You can copy them in your repository directory `.git/hooks`.
 
+Update
+======
+
+Make sure your database file is up to date before doing the upgrade.
+
+Proceed as indicated in the Installation section.
+
 Configuration
 =============
 
