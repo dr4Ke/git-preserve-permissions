@@ -171,7 +171,7 @@ sub gpp_check () {
             my $saved_mode = $mode & $options{'perms'};
             if ($saved_mode != $actual_masked_mode) {
                 $changed_files{$file} .= sprintf ' masked (%04o) mode changed from %04o to %04o,',
-                                                 $options{'perms'}, $actual_masked_mode, $saved_mode;
+                                                 $options{'perms'}, $saved_mode, $actual_masked_mode;
             }
             if ($options{'user'} and ($uid != $actual_uid)) {
                 $changed_files{$file} .= ' user changed from '.$uid.' to '.$actual_uid.",";
