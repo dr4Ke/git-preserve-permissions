@@ -327,8 +327,9 @@ if ($action_check) {
 }
 
 if ($old_mode_format or $changed_perms or $changed_uid or $changed_gid) {
-    printf "Please update your database with --save after making sure\n";
-    printf "that your settings and metadata are up to date.\n";
+    printf "Please update your database after making sure that your files\n";
+    printf "have the correct permissions:\n";
+    printf "    git preserve-permissions --save\n";
 }
 exit $exec_code;
 
