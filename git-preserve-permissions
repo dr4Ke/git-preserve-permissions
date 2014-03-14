@@ -111,35 +111,63 @@ sub validate_values {
         $mode = oct($mode);
     }
     if ($options{'user'}) {
-        $uid = -1 if (not $uid);
-    } else {
-        if ( $uid ) {
-            printf "WARNING: The preserve-permissions.user setting has changed.\n" if ($changed_uid == 0);
-            $changed_uid = 1;
-        }
-        $uid = -1;
+        $uid = -1 if ($uid eq '');
     }
     if ($options{'group'}) {
-        $gid = -1 if (not $gid);
-    } else {
-        if ( $gid ) {
-            printf "WARNING: The preserve-permissions.group setting has changed.\n" if ($changed_gid == 0);
-            $changed_gid = 1;
-        }
-        $gid = -1;
+        $gid = -1 if ($gid eq '');
     }
     printf {STDERR} "DEBUG: file status saved: %s, %04o, %s, %s\n", $file, $mode, $uid, $gid if $debug;
     return ($mode, $uid, $gid, $file);
 }
 
+my @file_status_file = ('', '', '', '');
+sub file_status_get {
+    my ($file) = @_;
+    my ($actual_mode, $actual_uid, $actual_gid);
+    if ($file_status_file[0] eq $file) {
+        ($actual_mode, $actual_uid, $actual_gid) = (@file_status_file)[1,2,3];
+        printf {STDERR} "DEBUG: file status cached: '%s', %04o, %s, %s\n",
+               $file,
+               $actual_mode,
+               $actual_uid,
+               $actual_gid if $debug;
+    } else {
+        ($actual_mode, $actual_uid, $actual_gid) = (lstat($file))[2,4,5];
+        $actual_mode &= 07777;
+        @file_status_file = ($file,
+                              $actual_mode,
+                              $actual_uid,
+                              $actual_gid
+                            );
+        printf {STDERR} "DEBUG: file status: '%s', %04o, %s, %s\n",
+               $file,
+               $actual_mode,
+               $actual_uid,
+               $actual_gid if $debug;
+    }
+    return ($actual_mode, $actual_uid, $actual_gid);
+}
+sub file_status_cache_flush {
+    @file_status_file = ('', '', '', '');
+}
+
+sub file_status_print {
+    my ($file, $message) = @_;
+    printf "%s: %s\n", $file, $message if $verbose;
+}
+
 sub check_ids {
     my ($file, $uid, $gid) = @_;
-    my ($actual_uid, $actual_gid) = (lstat($file))[4,5];
+    my ($actual_uid, $actual_gid) = (file_status_get($file))[1,2];
     my $result = 0;
-    if ($uid != -1 and ($actual_uid != $uid)) {
+    if ($options{'user'} and ($actual_uid != $uid)) {
+        file_status_print($file,
+            'user changed from '.$uid.' to '.$actual_uid);
         $result = 1
     }
-    if ($gid != -1 and ($actual_gid != $gid)) {
+    if ($options{'group'} and ($actual_gid != $gid)) {
+        file_status_print($file,
+            'group changed from '.$gid.' to '.$actual_gid);
         $result = 1
     }
     return $result;
@@ -147,12 +175,17 @@ sub check_ids {
 
 sub check_mode {
     my ($file, $mode) = @_;
-    my ($actual_mode) = (lstat($file))[2] & 07777;
-    my $result = 0;
-    if ($mode != $actual_mode) {
-        $result = 1
+    my ($actual_mode) = (file_status_get($file))[0];
+    my $actual_masked_mode = $actual_mode & $options{'perms'};
+    my $saved_mode = $mode & $options{'perms'};
+    if ($saved_mode != $actual_masked_mode) {
+        file_status_print($file,
+            sprintf('masked (%04o) mode changed from %04o to %04o',
+                    $options{'perms'}, $saved_mode, $actual_masked_mode)
+            );
+        return 1;
     }
-    return $result;
+    return 0;
 }
 
 sub gpp_check () {
@@ -172,6 +205,7 @@ sub gpp_check () {
     open($fh, "< $name") or die $gpp_name.": Could not open file: $name\n";
     
     # Check known files for changes
+    my $result;
     while ( ! eof($fh) ) {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
@@ -181,19 +215,8 @@ sub gpp_check () {
         if (-l $file) {
             printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
         } elsif (-e $file) {
-            my ($actual_mode, $actual_uid, $actual_gid) = (lstat($file))[2,4,5];
-            my $actual_masked_mode = $actual_mode & $options{'perms'};
-            my $saved_mode = $mode & $options{'perms'};
-            if ($saved_mode != $actual_masked_mode) {
-                $changed_files{$file} .= sprintf ' masked (%04o) mode changed from %04o to %04o,',
-                                                 $options{'perms'}, $saved_mode, $actual_masked_mode;
-            }
-            if ($options{'user'} and ($uid != $actual_uid)) {
-                $changed_files{$file} .= ' user changed from '.$uid.' to '.$actual_uid.",";
-            }
-            if ($options{'group'} and ($gid  != $actual_gid)) {
-                $changed_files{$file} .= ' group changed from '.$gid.' to '.$actual_gid.",";
-            }
+            $result |= check_mode($file, $mode);
+            $result |= check_ids($file, $uid, $gid);
         } else {
             printf "WARNING: file '%s' does not exists\n", $file;
         }
@@ -218,13 +241,8 @@ sub gpp_check () {
         $check_code = 1;
     }
 
-    if (scalar(keys %changed_files) != 0) {
+    if ($result != 0) {
         print "Some file(s) metadata has changed\n";
-        if ($verbose) {
-            while (($key, $value) = each %changed_files) {
-                print "$key:$value\n";
-            }
-        }
         $check_code = 1;
     }
     
@@ -291,18 +309,19 @@ sub gpp_restore () {
             printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
         } elsif (-e $file) {
             print {STDERR} "DEBUG: Processing file '$file'\n" if $debug;
-            if (($options{'user'}) or ($options{'group'})) {
-                $uid = '' if (not $options{'user'});
-                $gid = '' if (not $options{'group'});
+            if (check_ids($file, $uid, $gid) != 0) {
+                $uid = -1 if (not $options{'user'});
+                $gid = -1 if (not $options{'group'});
                 printf "%s: Restoring owner:group to %s:%s\n", $file, $uid, $gid if $verbose;
                 chown $uid, $gid, $file;
+                file_status_cache_flush();
                 $result |= check_ids($file, $uid, $gid);
             }
-            my $actual_mode = (lstat($file))[2];
-            if (($actual_mode & $options{'perms'}) != ($mode & $options{'perms'})) {
+            if (check_mode($file, $mode)) {
                 my $restore_mode = ((07777 & ~$options{'perms'}) & $actual_mode) | ($mode & $options{'perms'});
-                printf "%s: Restoring mode from %04o to %04o\n", $file, $actual_mode, $restore_mode if $verbose;
+                printf "%s: Restoring mode to %04o\n", $file, $restore_mode if $verbose;
                 chmod $restore_mode, $file;
+                file_status_cache_flush();
                 $result |= check_mode($file, $restore_mode);
             }
         } else {
