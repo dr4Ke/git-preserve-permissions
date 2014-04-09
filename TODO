@@ -3,4 +3,3 @@ Things to implement if I have time/need:
 - display user and group names
 - cache user and group names
 - don't allow user and group options if not root
-- save directories and other file types permissions
