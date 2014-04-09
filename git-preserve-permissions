@@ -224,9 +224,10 @@ sub gpp_check () {
     
     # Check git ls-files for unknown files
     my @files = `git ls-files`;
-    foreach ( @files ) {
-        if ((not -l $_) and (not exists $known_files{$_})) {
-            print "File not known into $name: $_\n" if $verbose;
+    foreach my $file ( @files ) {
+        chomp $file;
+        if ((not -l $file) and (not exists $known_files{$file})) {
+            print "File not known into $name: $file\n" if $verbose;
             $unknown_files += 1;
         }
     }
@@ -265,8 +266,10 @@ sub gpp_save () {
     open($fh, "> $name") or die "Could not open file: $name\n";
     printf $fh "#FORMAT:%s\n", $dataversion;
     
-    @files = `git ls-files`;
+    my @files = `git ls-files`;
+    my %dirs;
     foreach my $file ( @files ) {
+        chomp $file;
         if ((-l $file) && (!$options{'savelinks'})) {
         if (-l $file) {
             printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
