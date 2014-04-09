@@ -4,20 +4,21 @@ return_code="$?"
 if [ "${return_code}" != "0" ]; then
     autosave=$(git config --bool --get preserve-permissions.autosave)
     autosavePatch=$(git config --bool --get preserve-permissions.autosavePatch)
+    gpp_file=$(git config --bool --get preserve-permissions.file)
     [ -z "${autosave}" ] && autosave="false"
     [ -z "${autosavePatch}" ] && autosavePatch="true"
     if [ "${autosave}" = "false" ]; then
         echo "Execute 'git preserve-permissions --save' to save new permissions"
-        echo "Execute 'git preserve-permissions --restore' to restore old permissions"
+        echo "Then 'git add ${gpp_file}' and redo your commit"
     elif [ "${autosavePatch}" = "true" ]; then
         git preserve-permissions --save
         exec < /dev/tty
-        git add -p "/.git-preserve-permissions"
-        echo "Permissions saved, please redo your commit"
+        git add -p "${gpp_file}"
+        return_code=$?
     else
         git preserve-permissions --save
-        git add "/.git-preserve-permissions"
-        echo "Permissions saved, please redo your commit"
+        git add "${gpp_file}"
+        return_code=$?
     fi
     exit ${return_code}
 fi
