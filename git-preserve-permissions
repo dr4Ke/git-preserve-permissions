@@ -218,7 +218,7 @@ sub gpp_check () {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
         next if (/^#/);
-        my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
+        my ($mode, $uid, $gid, $file) = validate_values(split(/:/, $_, 4));
         $known_files{$file} = 1;
         next if (-l $file);
         if (-e $file) {
@@ -323,7 +323,7 @@ sub gpp_restore () {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
         next if (/^#/);
-        my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
+        my ($mode, $uid, $gid, $file) = validate_values(split(/:/, $_, 4));
         next if (-l $file);
         if (-e $file) {
             print {STDERR} "DEBUG: Processing file '$file'\n" if $debug;
