@@ -331,6 +331,7 @@ sub gpp_restore () {
                 file_status_cache_flush();
                 $result |= check_ids($file, $uid, $gid);
             }
+            next if (-l $file);
             if (check_mode($file, $mode)) {
                 my $restore_mode = ((07777 & ~$options{'perms'}) & $actual_mode) | ($mode & $options{'perms'});
                 printf "%s: Restoring mode to %04o\n", $file, $restore_mode if $verbose;
