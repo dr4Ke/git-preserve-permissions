@@ -77,22 +77,24 @@ print {STDERR} "DEBUG: preserve-permissions.group: ".$options{'group'}."\n" if $
 printf {STDERR} "DEBUG: preserve-permissions.perms: %04o\n", $options{'perms'} if $debug;
 
 # Check database version
-my $name = $options{'file'};
-my $fh;
-if (-e $name) {
-    open($fh, "< $name") or die $gpp_name.": Could not open file: $name\n";
-    my $firstline = <$fh>;
-    close($fh);
-    if ($firstline =~ /^#FORMAT:/) {
-        $firstline =~ /^#FORMAT:([0-9\.]+)$/;
-        my $filever = $1;
-        if ($filever != $dataversion) {
-            printf "WARNING: Incorrect database version ($filever != $dataversion)\n";
+if (not $action_save) {
+    my $name = $options{'file'};
+    my $fh;
+    if (-e $name) {
+        open($fh, "< $name") or die $gpp_name.": Could not open file: $name\n";
+        my $firstline = <$fh>;
+        close($fh);
+        if ($firstline =~ /^#FORMAT:/) {
+            $firstline =~ /^#FORMAT:([0-9\.]+)$/;
+            my $filever = $1;
+            if ($filever != $dataversion) {
+                printf "WARNING: Incorrect database version ($filever != $dataversion)\n";
+                printf "         Please make sure to update the database.\n";
+            }
+        } else {
+            printf "WARNING: Database version outdated (<1.3).\n";
             printf "         Please make sure to update the database.\n";
         }
-    } else {
-        printf "WARNING: Database version outdated (<1.3).\n";
-        printf "         Please make sure to update the database.\n";
     }
 }
 
