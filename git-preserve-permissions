@@ -212,9 +212,7 @@ sub gpp_check () {
         next if (/^#/);
         my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
         $known_files{$file} = 1;
-        if (-l $file) {
-            printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
-        } elsif (-e $file) {
+        if ((-l $file) || (-e $file)) {
             $result |= check_mode($file, $mode);
             $result |= check_ids($file, $uid, $gid);
         } else {
@@ -270,10 +268,17 @@ sub gpp_save () {
     my %dirs;
     foreach my $file ( @files ) {
         chomp $file;
-        if ((-l $file) && (!$options{'savelinks'})) {
-        if (-l $file) {
-            printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
-        } elsif (-e $file) {
+        # Shamelessly copied from setgitperms.perl
+        my $parent = dirname($file);
+        while (!exists $dirs{$parent}) {
+            $dirs{$parent} = 1;
+            next if $parent eq '.';
+            printf {STDERR} "DEBUG: processing %s\n", $parent if $debug;
+            my ($mode, $uid, $gid) = (lstat($parent))[2,4,5];
+            printf $fh "%04o:%s:%s:%s\n", $mode & 07777, $uid, $gid, $parent;
+            $parent = dirname($parent);
+        }
+        if ( (-e $file) || (-l $file) ) {
             printf {STDERR} "DEBUG: processing %s\n", $file if $debug;
             my ($mode, $uid, $gid) = (lstat($file))[2,4,5];
             printf $fh "%04o:%s:%s:%s\n", $mode & 07777, $uid, $gid, $file;
@@ -308,9 +313,7 @@ sub gpp_restore () {
         chomp;
         next if (/^#/);
         my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
-        if (-l $file) {
-            printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
-        } elsif (-e $file) {
+        if ((-l $file) || (-e $file)) {
             print {STDERR} "DEBUG: Processing file '$file'\n" if $debug;
             if (check_ids($file, $uid, $gid) != 0) {
                 $uid = -1 if (not $options{'user'});
