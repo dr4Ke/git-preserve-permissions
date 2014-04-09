@@ -220,7 +220,8 @@ sub gpp_check () {
         next if (/^#/);
         my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
         $known_files{$file} = 1;
-        if ((-l $file) || (-e $file)) {
+        next if (-l $file);
+        if (-e $file) {
             $result |= check_mode($file, $mode);
             $result |= check_ids($file, $uid, $gid);
         } else {
@@ -232,7 +233,8 @@ sub gpp_check () {
     my @files = `git ls-files`;
     foreach my $file ( @files ) {
         chomp $file;
-        if ((not -l $file) and (not exists $known_files{$file})) {
+        next if (-l $file);
+        if (not exists $known_files{$file}) {
             print "File not known into $name: $file\n" if $verbose;
             $unknown_files += 1;
         }
@@ -286,7 +288,8 @@ sub gpp_save () {
             printf $fh "%04o:%s:%s:%s\n", $mode & 07777, $uid, $gid, $parent;
             $parent = dirname($parent);
         }
-        if ( (-e $file) || (-l $file) ) {
+        next if (-l $file);
+        if (-e $file) {
             printf {STDERR} "DEBUG: processing %s\n", $file if $debug;
             my ($mode, $uid, $gid) = (lstat($file))[2,4,5];
             printf $fh "%04o:%s:%s:%s\n", $mode & 07777, $uid, $gid, $file;
@@ -321,7 +324,8 @@ sub gpp_restore () {
         chomp;
         next if (/^#/);
         my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
-        if ((-l $file) || (-e $file)) {
+        next if (-l $file);
+        if (-e $file) {
             print {STDERR} "DEBUG: Processing file '$file'\n" if $debug;
             if (check_ids($file, $uid, $gid) != 0) {
                 $uid = -1 if (not $options{'user'});
@@ -331,7 +335,6 @@ sub gpp_restore () {
                 file_status_cache_flush();
                 $result |= check_ids($file, $uid, $gid);
             }
-            next if (-l $file);
             if (check_mode($file, $mode)) {
                 my $restore_mode = ((07777 & ~$options{'perms'}) & $actual_mode) | ($mode & $options{'perms'});
                 printf "%s: Restoring mode to %04o\n", $file, $restore_mode if $verbose;
