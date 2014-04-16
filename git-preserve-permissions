@@ -29,15 +29,17 @@ my $action_save = 0;
 my $action_restore = 0;
 my $verbose = 0;
 my $debug = 0;
+my $hook = 0;
 
 GetOptions('check'   => \$action_check,
            'save'    => \$action_save,
            'restore' => \$action_restore,
            'verbose' => \$verbose,
-           'debug'   => \$debug);
+           'debug'   => \$debug,
+           'hook'    => \$hook);
 
 sub usage () {
-    print $gpp_name." --check | --save | --restore [--verbose] [--debug]\n";
+    print $gpp_name." --check | --save | --restore [--verbose] [--debug] [--hook]\n";
     print "Version: ".$version."\n";
     print "\n";
     print "Configuration:\n";
@@ -205,8 +207,8 @@ sub gpp_check () {
     my $unknown_files = 0;
     
     if (! -e $name) {
-        print $gpp_name.": $name does not exists.\n";
-        print "use '".$gpp_name." --save' to initialize it.\n";
+        print $gpp_name.": $name does not exists.\n" if not $hook;
+        print "use '".$gpp_name." --save' to initialize it.\n" if not $hook;
         return 1;
     }
     
@@ -225,7 +227,7 @@ sub gpp_check () {
             $result |= check_mode($file, $mode);
             $result |= check_ids($file, $uid, $gid);
         } else {
-            printf "WARNING: file '%s' does not exists\n", $file;
+            printf "WARNING: file '%s' does not exists\n", $file if not $hook;
         }
     }
     
@@ -246,17 +248,17 @@ sub gpp_check () {
     my $check_code = 0;
 
     if ($unknown_files > 0) {
-        print "$unknown_files unknown file(s)\n";
+        print "$unknown_files unknown file(s)\n" if not $hook;
         $check_code = 1;
     }
 
     if ($result != 0) {
-        print "Some file(s) metadata has changed\n";
+        print "Some file(s) metadata has changed\n" if not $hook;
         $check_code = 1;
     }
     
     if (not $verbose and $check_code > 0) {
-        print "Use ".$gpp_name." --check --verbose for more information\n";
+        print "Use ".$gpp_name." --check --verbose for more information\n" if not $hook;
     }
     return $check_code;
 }

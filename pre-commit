@@ -1,5 +1,5 @@
 #!/bin/bash
-git preserve-permissions --check
+git preserve-permissions --check --hook
 return_code="$?"
 if [ "${return_code}" != "0" ]; then
     autosave=$(git config --bool --get preserve-permissions.autosave)
