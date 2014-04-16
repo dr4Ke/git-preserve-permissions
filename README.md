@@ -8,7 +8,14 @@ Installation
 
 Copy `git-preserve-permissions` somewhere in your PATH (maybe `~/bin`).
 
-`post-checkout` and `pre-commit` hooks are provided. You can copy them in your repository directory `.git/hooks`.
+`post-checkout`, `post-merge` and `pre-commit` hooks are provided. You can copy them in your repository directory `.git/hooks`.
+
+Update
+======
+
+Make sure your database file is up to date before doing the upgrade.
+
+Proceed as indicated in the Installation section.
 
 Configuration
 =============
@@ -19,8 +26,8 @@ The following configuration options are available:
  - `preserve-permissions.user`: true/false to save/restore uid (defaults to false)
  - `preserve-permissions.group`: true/false to save/restore gid (defaults to false)
  - `preserve-permissions.perms`: octal mask to select bits to save/restore (defaults to `0700`)
- - `preserve-permissions.autosave`: true/false to automatically save new permissions on commit (defaults to false)
- - `preserve-permissions.autosavePatch`: true/false to use `git add -p` when autosave is on (defaults to true)
+ - `preserve-permissions.autosave`: true/false to automatically save new permissions on commit (defaults to true)
+ - `preserve-permissions.autosavePatch`: true/false to use `git add -p` when autosave is on (defaults to false)
 
 Use the following command to set them:
 
