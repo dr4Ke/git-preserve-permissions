@@ -232,12 +232,10 @@ sub gpp_check () {
     }
     
     # Check git ls-files for unknown files
-    my @files = `git ls-files`;
-    foreach my $file ( @files ) {
-        chomp $file;
-        next if (-l $file);
-        if (not exists $known_files{$file}) {
-            print "File not known into $name: $file\n" if $verbose;
+    my $output = `git ls-files -z`;
+    foreach ( split("\0", $output) ) {
+        if ((not -l $_) and (not exists $known_files{$_})) {
+            print "File not known into $name: $_\n" if $verbose;
             $unknown_files += 1;
         }
     }
@@ -276,11 +274,11 @@ sub gpp_save () {
     open($fh, "> $name") or die "Could not open file: $name\n";
     printf $fh "#FORMAT:%s\n", $dataversion;
     
-    my @files = `git ls-files`;
     my %dirs;
-    foreach my $file ( @files ) {
-        chomp $file;
+    $output = `git ls-files -z`;
+    foreach my $file ( split("\0", $output) ) {
         # Shamelessly copied from setgitperms.perl
+        # We have to manually add stats for parent directories
         my $parent = dirname($file);
         while (!exists $dirs{$parent}) {
             $dirs{$parent} = 1;
@@ -290,8 +288,9 @@ sub gpp_save () {
             printf $fh "%04o:%s:%s:%s\n", $mode & 07777, $uid, $gid, $parent;
             $parent = dirname($parent);
         }
-        next if (-l $file);
-        if (-e $file) {
+        if (-l $file) {
+            printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
+        } elsif (-e $file) {
             printf {STDERR} "DEBUG: processing %s\n", $file if $debug;
             my ($mode, $uid, $gid) = (lstat($file))[2,4,5];
             printf $fh "%04o:%s:%s:%s\n", $mode & 07777, $uid, $gid, $file;
