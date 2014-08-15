@@ -3,6 +3,11 @@ git-preserve-permissions
 
 Preserve file permissions within a git repository
 
+Backward compatibility break
+----------------------------
+
+Starting with version 1.3, the permissions database file format changes to always include all informations: permissions, owner, group, even if not needed. That way, changing the `user`, `group` and `perms` options should always work as expected. Previous versions are **not** expected to work with this file format.
+
 Installation
 ============
 
@@ -13,9 +18,9 @@ Copy `git-preserve-permissions` somewhere in your PATH (maybe `~/bin`).
 Update
 ======
 
-Make sure your database file is up to date before doing the upgrade.
+**Important:** Make sure your permissions are up to date in all your git repositories **before** doing the upgrade.
 
-Proceed as indicated in the Installation section.
+Proceed as indicated in the Installation section, then update the permissions database file for your repositories with the command ``git preserve-permissions --save``.
 
 Configuration
 =============
