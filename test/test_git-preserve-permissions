@@ -58,12 +58,13 @@ check_result () {
     fi
 }
 
-part "Initialisations"
-step "Make sure we're in the tests directory\n"
+# Make sure we're in the tests directory
 if [ "${CWD}" != "${BASEDIR}" ]; then
     echo "$PROG must be executed from '${BASEDIR}'"
     exit 2
 fi
+
+part "Initialisations"
 
 step "Cleaning output directory\n"
 rm -rf "${OUTPUTDIR}"
