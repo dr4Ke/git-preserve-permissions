@@ -1,0 +1,118 @@
+#!/bin/bash
+
+PROG=$(basename "$0")
+BASEDIR=$(readlink -f "$(dirname "$0")")
+CWD=$(readlink -f "$PWD")
+REPONAME="repo"
+REPODIR="${BASEDIR}/${REPONAME}"
+PATH="${BASEDIR}/bin:${PATH}"
+OUTPUTDIR="${BASEDIR}/output"
+TESTSDIR="${BASEDIR}/tests"
+
+PART=
+COUNT=0
+SUCCESS=0
+FAILURE=0
+
+part () {
+    PART="$1"
+    echo -e "\n====> $*"
+}
+
+step () {
+    let COUNT+=1
+    OUTPUTFILE="${OUTPUTDIR}/${PART}_${COUNT}.log"
+    echo "=======================================" >> "${OUTPUTFILE}"
+    echo "Step: $*" >> "${OUTPUTFILE}"
+    echo "=======================================" >> "${OUTPUTFILE}"
+    echo -ne "--> $*"
+}
+
+run () {
+    echo "=======================================" >> "${OUTPUTFILE}"
+    date '+%Y/%m/%d %H:%M:%S' >> "${OUTPUTFILE}"
+    echo "Executing: $@" >> "${OUTPUTFILE}"
+    echo "Working directory: $PWD" >> "${OUTPUTFILE}"
+    echo "=======================================" >> "${OUTPUTFILE}"
+    echo "Output:" >> "${OUTPUTFILE}"
+    "$@" >> "${OUTPUTFILE}" 2>&1
+    return $?
+}
+
+success () {
+    echo ": OK"
+    let SUCCESS+=1
+}
+
+failure () {
+    echo ": FAIL (see '${OUTPUTFILE}')"
+    let FAILURE+=1
+}
+
+check_result () {
+    local result=$?
+    if [ "${result}" = "0" ]; then
+        success
+    else
+        failure
+    fi
+}
+
+part "Initialisations"
+step "Make sure we're in the tests directory\n"
+if [ "${CWD}" != "${BASEDIR}" ]; then
+    echo "$PROG must be executed from '${BASEDIR}'"
+    exit 2
+fi
+
+step "Cleaning output directory\n"
+rm -rf "${OUTPUTDIR}"
+mkdir "${OUTPUTDIR}"
+
+if [ -d "${REPODIR}" ]; then
+    step "Removing existing repository\n"
+    cd "${BASEDIR}"
+    \rm -rf "${REPODIR}"
+fi
+
+step "Make repository\n"
+mkdir "${REPODIR}"
+cd "${REPODIR}"
+run git init
+
+step "Linking hooks\n"
+ln -s ../../../../pre-commit "${REPODIR}/.git/hooks/"
+ln -s ../../../../post-checkout "${REPODIR}/.git/hooks/"
+ln -s ../../../../post-merge "${REPODIR}/.git/hooks/"
+
+step "Configuring git-preserve-permissions\n"
+git config preserve-permissions.file .gitpp
+git config preserve-permissions.perms 7777
+git config preserve-permissions.autosave true
+git config preserve-permissions.autosavePatch false
+
+step "Make testing files\n"
+mkdir "${REPODIR}/special_files"
+echo "This is a file with a : in its name" > "${REPODIR}/special_files/file_containing_:_in_its_name"
+chmod g-rwx "${REPODIR}/special_files/file_containing_:_in_its_name"
+echo "This is a file with a new line in its name" > "${REPODIR}/special_files/file_containing_
+_in_its_name"
+chmod g-rwx "${REPODIR}/special_files/file_containing_
+_in_its_name"
+
+part "Testing"
+COUNT=0
+
+for _test in $(cd "${TESTSDIR}"; ls -v); do
+    cd "${REPODIR}"
+    source "${TESTSDIR}/${_test}"
+done
+
+part "Results"
+if [ "${FAILURES}" = "0" ]; then
+    echo "All tests succeeded"
+else
+    echo "There was some errors"
+fi
+echo "Succeeding tests: ${SUCCESS}"
+echo "Failing tests:    ${FAILURE}"
