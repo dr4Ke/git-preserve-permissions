@@ -65,9 +65,10 @@ if [ "${CWD}" != "${BASEDIR}" ]; then
 fi
 
 part "Initialisations"
-
-step "Cleaning output directory\n"
-rm -rf "${OUTPUTDIR}"
+if [ -d "${OUTPUTDIR}" ]; then
+    step "Cleaning output directory\n"
+    rm -rf "${OUTPUTDIR}"
+fi
 mkdir "${OUTPUTDIR}"
 
 if [ -d "${REPODIR}" ]; then
