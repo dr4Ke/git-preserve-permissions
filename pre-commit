@@ -12,12 +12,12 @@ if [ "${return_code}" != "0" ]; then
         echo "Execute 'git preserve-permissions --save' to save new permissions"
         echo "Then 'git add ${gpp_file}' and redo your commit"
     elif [ "${autosavePatch}" = "true" ]; then
-        git preserve-permissions --save
+        git preserve-permissions --save --hook
         exec < /dev/tty
         git add -p "${gpp_file}"
         return_code=$?
     else
-        git preserve-permissions --save
+        git preserve-permissions --save --hook
         git add "${gpp_file}"
         return_code=$?
     fi

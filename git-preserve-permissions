@@ -302,7 +302,8 @@ sub gpp_save () {
     close($fh);
     
     if ($fileexists eq 'false') {
-        print "File $name created. You may want to add it to your repository.\n"
+        print "File $name created.";
+        print " You may want to add it to your repository.\n" if not $hook;
     }
 }
 
