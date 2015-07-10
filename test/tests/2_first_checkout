@@ -1,0 +1,5 @@
+step "First checkout"
+rm -rf *
+run git checkout .
+run git preserve-permissions --check
+check_result

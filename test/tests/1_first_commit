@@ -1,0 +1,5 @@
+step "First commit"
+run git add -A .
+run git commit -m "first commit"
+run git preserve-permissions --check
+check_result

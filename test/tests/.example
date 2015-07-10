@@ -1,0 +1,10 @@
+# First declare the step:
+step "First commit"
+
+# Then run some commands:
+run git add -A .
+run git commit -m "first commit"
+run git preserve-permissions --check
+
+# And check the result of the last one
+check_result
