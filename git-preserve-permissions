@@ -97,7 +97,7 @@ sub validate_values {
         $mode &= $options{'perms'};
     }
     if ($options{'user'}) {
-        $uid = -1 if (not $uid);
+        $uid = -1 if (not length $uid);
     } else {
         if ( $uid ) {
             printf "WARNING: The preserve-permissions.user setting has changed.\n" if ($changed_uid == 0);
@@ -106,7 +106,7 @@ sub validate_values {
         $uid = -1;
     }
     if ($options{'group'}) {
-        $gid = -1 if (not $gid);
+        $gid = -1 if (not length $gid);
     } else {
         if ( $gid ) {
             printf "WARNING: The preserve-permissions.group setting has changed.\n" if ($changed_gid == 0);
@@ -183,7 +183,7 @@ sub gpp_check () {
     }
     
     # Check git ls-files for unknown files
-    my $output = `git ls-files`;
+    my $output = `find . -not -path "./.git/*" | grep -v ".git"`;
     foreach ( split("\n", $output) ) {
         if ((not -l $_) and (not exists $known_files{$_})) {
             print "File not known into $name: $_\n" if $verbose;
@@ -229,7 +229,7 @@ sub gpp_save () {
     
     open($fh, "> $name") or die "Could not open file: $name\n";
     
-    $output = `git ls-files`;
+    $output = `find . -not -path "./.git/*" | grep -v ".git"`;
     foreach ( split("\n", $output) ) {
 	my $file = $_;
         if (-l $file) {
