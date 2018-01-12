@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # git-preserve-permissions stores/restores metadata in a git repository
-#    git-preserve-permissions Copyright (C) 2012,2013 Christophe Drevet <christophe.drevet@gmail.com>
+#    git-preserve-permissions Copyright (C) 2012-2014 Christophe Drevet <christophe.drevet@gmail.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -14,7 +14,8 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-$version = "1.2";
+$version = "dev";
+$dataversion = "1.3";
 use lib (split(/:/, $ENV{GITPERLLIB}));
 
 use File::Basename;
@@ -28,33 +29,36 @@ my $action_save = 0;
 my $action_restore = 0;
 my $verbose = 0;
 my $debug = 0;
+my $hook = 0;
 
 GetOptions('check'   => \$action_check,
            'save'    => \$action_save,
            'restore' => \$action_restore,
            'verbose' => \$verbose,
-           'debug'   => \$debug);
+           'debug'   => \$debug,
+           'hook'    => \$hook);
 
 sub usage () {
-    print $gpp_name." --check | --save | --restore [--verbose] [--debug]\n";
+    print $gpp_name." --check | --save | --restore [--verbose] [--debug] [--hook]\n";
     print "Version: ".$version."\n";
     print "\n";
     print "Configuration:\n";
-    print "    preserve-permissions.file: file to use (default: .git-preserve-permissions)\n";
-    print "    preserve-permissions.user: save user id (default: false)\n";
+    print "    preserve-permissions.file:  file to use (default: .git-preserve-permissions)\n";
+    print "    preserve-permissions.user:  save user id (default: false)\n";
     print "    preserve-permissions.group: save group id (default: false)\n";
     print "    preserve-permissions.perms: save permissions using this octal\n";
     print "                                mask (default: 0700)\n";
     print "\n";
-    print "git-preserve-permissions Copyright (C) 2012,2013 Christophe Drevet\n";
+    print "pre-commit hook configuration:\n";
+    print "    preserve-permissions.autosave:      automaticaly save permissions during pre-commit\n";
+    print "                                        defaults to true\n";
+    print "    preserve-permissions.autosavePatch: interactive add (-p) if autosave in true\n";
+    print "                                        defaults to false\n";
+    print "\n";
+    print "git-preserve-permissions Copyright (C) 2012-2014 Christophe Drevet\n";
     print "                                            <christophe.drevet\@gmail.com>\n";
     print "This program comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n";
     print "are welcome to redistribute it under certain conditions; see COPYRIGHT file.\n";
-}
- 
-if (not ($action_check || $action_save || $action_restore)) {
-    usage;
-    exit 2;
 }
 
 # git configuration options
@@ -62,70 +66,118 @@ use Git;
 my $repo = Git->repository();
 my %options;
 $options{'wc_path'} = $repo->wc_path;
-print $gpp_name." DEBUG: Working copy path: ".$options{'wc_path'}."\n" if $debug;
+print {STDERR} "DEBUG: Working copy path: ".$options{'wc_path'}."\n" if $debug;
 chdir $options{'wc_path'};
 $options{'file'} = ($repo->config('preserve-permissions.file') or '.git-preserve-permissions');
 $options{'user'} = ($repo->config_bool('preserve-permissions.user') or 0);
 $options{'group'} = ($repo->config_bool('preserve-permissions.group') or 0);
 $options{'perms'} = oct($repo->config('preserve-permissions.perms') or '0700');
 
-print $gpp_name." DEBUG: settings:\n" if $debug;
-print "DEBUG: preserve-permissions.user: ".$options{'user'}."\n" if $debug;
-print "DEBUG: preserve-permissions.group: ".$options{'group'}."\n" if $debug;
-printf "DEBUG: preserve-permissions.perms: %04o\n", $options{'perms'} if $debug;
+print {STDERR} "DEBUG: settings:\n" if $debug;
+print {STDERR} "DEBUG: preserve-permissions.user: ".$options{'user'}."\n" if $debug;
+print {STDERR} "DEBUG: preserve-permissions.group: ".$options{'group'}."\n" if $debug;
+printf {STDERR} "DEBUG: preserve-permissions.perms: %04o\n", $options{'perms'} if $debug;
+
+# Check database version
+if (not $action_save) {
+    my $name = $options{'file'};
+    my $fh;
+    if (-e $name) {
+        open($fh, "< $name") or die $gpp_name.": Could not open file: $name\n";
+        my $firstline = <$fh>;
+        close($fh);
+        if ($firstline =~ /^#FORMAT:/) {
+            $firstline =~ /^#FORMAT:([0-9\.]+)$/;
+            my $filever = $1;
+            if ($filever != $dataversion) {
+                printf "WARNING: Incorrect database version ($filever != $dataversion)\n";
+                printf "         Please make sure to update the database.\n";
+            }
+        } else {
+            printf "WARNING: Database version outdated (<1.3).\n";
+            printf "         Please make sure to update the database.\n";
+        }
+    }
+}
+
+if (not ($action_check || $action_save || $action_restore)) {
+    usage;
+    exit 2;
+}
 
 # Execution functions
 my $old_mode_format = 0;
-my $changed_perms = 0;
 my $changed_uid = 0;
 my $changed_gid = 0;
 sub validate_values {
     my ($mode, $uid, $gid, $file) = @_;
     # Checking old store format (decimal)
     if ( int($mode) > 7777 ) {
-        printf "DEBUG: mode %o stored in decimal form (%d)\n", $mode, $mode if $debug;
+        printf {STDERR} "DEBUG: mode %o stored in decimal form (%d)\n", $mode, $mode if $debug;
         printf "WARNING: Modes are stored in decimal form.\n" if ($old_mode_format == 0);
         $old_mode_format = 1;
         $mode &= 07777;
     } else {
         $mode = oct($mode);
     }
-    # Checking changed perms setting
-    if ( $mode != ($mode & $options{'perms'})) {
-        printf "WARNING: The preserve-permissions.perms setting has changed.\n" if ($changed_perms == 0);
-        $changed_perms = 1;
-        $mode &= $options{'perms'};
-    }
     if ($options{'user'}) {
-        $uid = -1 if (not $uid);
-    } else {
-        if ( $uid ) {
-            printf "WARNING: The preserve-permissions.user setting has changed.\n" if ($changed_uid == 0);
-            $changed_uid = 1;
-        }
-        $uid = -1;
+        $uid = -1 if ($uid eq '');
     }
     if ($options{'group'}) {
-        $gid = -1 if (not $gid);
-    } else {
-        if ( $gid ) {
-            printf "WARNING: The preserve-permissions.group setting has changed.\n" if ($changed_gid == 0);
-            $changed_gid = 1;
-        }
-        $gid = -1;
+        $gid = -1 if ($gid eq '');
     }
-    printf "DEBUG: file: %s, %04o, %s, %s\n", $file, $mode, $uid, $gid if $debug;
+    printf {STDERR} "DEBUG: file status saved: %s, %04o, %s, %s\n", $file, $mode, $uid, $gid if $debug;
     return ($mode, $uid, $gid, $file);
+}
+
+my @file_status_file = ('', '', '', '');
+sub file_status_get {
+    my ($file) = @_;
+    my ($actual_mode, $actual_uid, $actual_gid);
+    if ($file_status_file[0] eq $file) {
+        ($actual_mode, $actual_uid, $actual_gid) = (@file_status_file)[1,2,3];
+        printf {STDERR} "DEBUG: file status cached: '%s', %04o, %s, %s\n",
+               $file,
+               $actual_mode,
+               $actual_uid,
+               $actual_gid if $debug;
+    } else {
+        ($actual_mode, $actual_uid, $actual_gid) = (lstat($file))[2,4,5];
+        $actual_mode &= 07777;
+        @file_status_file = ($file,
+                              $actual_mode,
+                              $actual_uid,
+                              $actual_gid
+                            );
+        printf {STDERR} "DEBUG: file status: '%s', %04o, %s, %s\n",
+               $file,
+               $actual_mode,
+               $actual_uid,
+               $actual_gid if $debug;
+    }
+    return ($actual_mode, $actual_uid, $actual_gid);
+}
+sub file_status_cache_flush {
+    @file_status_file = ('', '', '', '');
+}
+
+sub file_status_print {
+    my ($file, $message) = @_;
+    printf "%s: %s\n", $file, $message if $verbose;
 }
 
 sub check_ids {
     my ($file, $uid, $gid) = @_;
-    my ($actual_uid, $actual_gid) = (lstat($file))[4,5];
+    my ($actual_uid, $actual_gid) = (file_status_get($file))[1,2];
     my $result = 0;
-    if ($uid != -1 and ($actual_uid != $uid)) {
+    if ($options{'user'} and ($actual_uid != $uid)) {
+        file_status_print($file,
+            'user changed from '.$uid.' to '.$actual_uid);
         $result = 1
     }
-    if ($gid != -1 and ($actual_gid != $gid)) {
+    if ($options{'group'} and ($actual_gid != $gid)) {
+        file_status_print($file,
+            'group changed from '.$gid.' to '.$actual_gid);
         $result = 1
     }
     return $result;
@@ -133,12 +185,17 @@ sub check_ids {
 
 sub check_mode {
     my ($file, $mode) = @_;
-    my ($actual_mode) = (lstat($file))[2] & 07777;
-    my $result = 0;
-    if ($mode != $actual_mode) {
-        $result = 1
+    my ($actual_mode) = (file_status_get($file))[0];
+    my $actual_masked_mode = $actual_mode & $options{'perms'};
+    my $saved_mode = $mode & $options{'perms'};
+    if ($saved_mode != $actual_masked_mode) {
+        file_status_print($file,
+            sprintf('masked (%04o) mode changed from %04o to %04o',
+                    $options{'perms'}, $saved_mode, $actual_masked_mode)
+            );
+        return 1;
     }
-    return $result;
+    return 0;
 }
 
 sub gpp_check () {
@@ -150,41 +207,33 @@ sub gpp_check () {
     my $unknown_files = 0;
     
     if (! -e $name) {
-        print $gpp_name.": $name does not exists.\n";
-        print "use '".$gpp_name." --save' to initialize it.\n";
+        print $gpp_name.": $name does not exists.\n" if not $hook;
+        print "use '".$gpp_name." --save' to initialize it.\n" if not $hook;
         return 1;
     }
     
     open($fh, "< $name") or die $gpp_name.": Could not open file: $name\n";
     
     # Check known files for changes
+    my $result;
     while ( ! eof($fh) ) {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
-        my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
+        next if (/^#/);
+        my ($mode, $uid, $gid, $file) = validate_values(split(/:/, $_, 4));
         $known_files{$file} = 1;
-        if (-l $file) {
-            printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
-        } elsif (-e $file) {
-            my ($actual_mode, $actual_uid, $actual_gid) = (lstat($file))[2,4,5];
-            my $saved_mode = $actual_mode & $options{'perms'};
-            if ($mode != $saved_mode) {
-                $changed_files{$file} .= sprintf ' masked (%04o) mode changed from %04o to %04o,', $options{'perms'}, $mode, $saved_mode;
-            }
-            if ($options{'user'} and ($uid != $actual_uid)) {
-                $changed_files{$file} .= ' user changed from '.$uid.' to '.$actual_uid.",";
-            }
-            if ($options{'group'} and ($gid  != $actual_gid)) {
-                $changed_files{$file} .= ' group changed from '.$gid.' to '.$actual_gid.",";
-            }
+        next if (-l $file);
+        if (-e $file) {
+            $result |= check_mode($file, $mode);
+            $result |= check_ids($file, $uid, $gid);
         } else {
-            printf "WARNING: file '%s' does not exists\n", $file;
+            printf "WARNING: file '%s' does not exists\n", $file if not $hook;
         }
     }
     
     # Check git ls-files for unknown files
-    my $output = `git ls-files`;
-    foreach ( split("\n", $output) ) {
+    my $output = `git ls-files -z`;
+    foreach ( split("\0", $output) ) {
         if ((not -l $_) and (not exists $known_files{$_})) {
             print "File not known into $name: $_\n" if $verbose;
             $unknown_files += 1;
@@ -197,22 +246,17 @@ sub gpp_check () {
     my $check_code = 0;
 
     if ($unknown_files > 0) {
-        print "$unknown_files unknown file(s)\n";
+        print "$unknown_files unknown file(s)\n" if not $hook;
         $check_code = 1;
     }
 
-    if (scalar(keys %changed_files) != 0) {
-        print "Some file(s) metadata has changed\n";
-        if ($verbose) {
-            while (($key, $value) = each %changed_files) {
-                print "$key:$value\n";
-            }
-        }
+    if ($result != 0) {
+        print "Some file(s) metadata has changed\n" if not $hook;
         $check_code = 1;
     }
     
     if (not $verbose and $check_code > 0) {
-        print "Use ".$gpp_name." --check --verbose for more information\n";
+        print "Use ".$gpp_name." --check --verbose for more information\n" if not $hook;
     }
     return $check_code;
 }
@@ -228,19 +272,28 @@ sub gpp_save () {
     }
     
     open($fh, "> $name") or die "Could not open file: $name\n";
+    printf $fh "#FORMAT:%s\n", $dataversion;
     
-    $output = `git ls-files`;
-    foreach ( split("\n", $output) ) {
-	my $file = $_;
+    my %dirs;
+    $output = `git ls-files -z`;
+    foreach my $file ( split("\0", $output) ) {
+        # Shamelessly copied from setgitperms.perl
+        # We have to manually add stats for parent directories
+        my $parent = dirname($file);
+        while (!exists $dirs{$parent}) {
+            $dirs{$parent} = 1;
+            next if $parent eq '.';
+            printf {STDERR} "DEBUG: processing %s\n", $parent if $debug;
+            my ($mode, $uid, $gid) = (lstat($parent))[2,4,5];
+            printf $fh "%04o:%s:%s:%s\n", $mode & 07777, $uid, $gid, $parent;
+            $parent = dirname($parent);
+        }
         if (-l $file) {
             printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
         } elsif (-e $file) {
-            printf "DEBUG: processing %s\n", $file if $debug;
+            printf {STDERR} "DEBUG: processing %s\n", $file if $debug;
             my ($mode, $uid, $gid) = (lstat($file))[2,4,5];
-            $mode &= $options{'perms'};
-            $uid = '' if (not $options{'user'});
-            $gid = '' if (not $options{'group'});
-            printf $fh "%04o:%s:%s:%s\n", $mode, $uid, $gid, $file;
+            printf $fh "%04o:%s:%s:%s\n", $mode & 07777, $uid, $gid, $file;
         } else {
             print "WARNING: A file reported by `git ls-files` doesn't exist: $file\n";
         }
@@ -249,7 +302,8 @@ sub gpp_save () {
     close($fh);
     
     if ($fileexists eq 'false') {
-        print "File $name created. You may want to add it to your repository.\n"
+        print "File $name created.";
+        print " You may want to add it to your repository.\n" if not $hook;
     }
 }
 
@@ -270,21 +324,24 @@ sub gpp_restore () {
     while ( ! eof($fh) ) {
         defined( $_ = <$fh> ) or die "readline failed: $!";
         chomp;
-        my ($mode, $uid, $gid, $file) = validate_values(split(/:/));
-        if (-l $file) {
-            printf "Skipped: '%s' is a symbolic link\n", $file if $verbose;
-        } elsif (-e $file) {
-            print "DEBUG: Processing file '$file'\n" if $debug;
-            if (($options{'user'}) or ($options{'group'})) {
+        next if (/^#/);
+        my ($mode, $uid, $gid, $file) = validate_values(split(/:/, $_, 4));
+        next if (-l $file);
+        if (-e $file) {
+            print {STDERR} "DEBUG: Processing file '$file'\n" if $debug;
+            if (check_ids($file, $uid, $gid) != 0) {
+                $uid = -1 if (not $options{'user'});
+                $gid = -1 if (not $options{'group'});
                 printf "%s: Restoring owner:group to %s:%s\n", $file, $uid, $gid if $verbose;
                 chown $uid, $gid, $file;
+                file_status_cache_flush();
                 $result |= check_ids($file, $uid, $gid);
             }
-            my $actual_mode = (lstat($file))[2];
-            if (($actual_mode & $options{'perms'}) != ($mode & $options{'perms'})) {
+            if (check_mode($file, $mode)) {
                 my $restore_mode = ((07777 & ~$options{'perms'}) & $actual_mode) | ($mode & $options{'perms'});
-                printf "%s: Restoring mode from %04o to %04o\n", $file, $actual_mode, $restore_mode if $verbose;
+                printf "%s: Restoring mode to %04o\n", $file, $restore_mode if $verbose;
                 chmod $restore_mode, $file;
+                file_status_cache_flush();
                 $result |= check_mode($file, $restore_mode);
             }
         } else {
@@ -311,8 +368,9 @@ if ($action_check) {
 }
 
 if ($old_mode_format or $changed_perms or $changed_uid or $changed_gid) {
-    printf "Please update your database with --save after making sure\n";
-    printf "that your settings and metadata are up to date.\n";
+    printf "Please update your database after making sure that your files\n";
+    printf "have the correct permissions:\n";
+    printf "    git preserve-permissions --save\n";
 }
 exit $exec_code;
 

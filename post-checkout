@@ -2,6 +2,6 @@
 git preserve-permissions --restore
 return_code=$?
 if [ "${return_code}" != "0" ]; then
-    echo "There was an error restoring permissions with '${GIT_DIR}/commands/git-preserve-permissions-restore'"
+    echo "There was an error restoring permissions with 'git preserve-permissions --restore'"
     exit ${return_code}
 fi
