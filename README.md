@@ -47,11 +47,13 @@ Usage
 
 Save your permissions
 ---------------------
-Use `git preserve-permissions --save` to save permissions in a file named `.git-preserve-permissions`.
+Use `git preserve-permissions --save` to initiate the storage file.
 
-Commit this file to the current branch. It will be useful upon branch checkouts.
+Add this file to your repository: `git add .git-preserve-permissions`.
 
-Do it for each branch where you need to save permissions.
+Commit your changes. That's it.
+
+If you already have several branches, you should do this in all of them, as this file needs to exists to restore other files permissions.
 
 Check your permissions
 ----------------------
