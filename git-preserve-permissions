@@ -207,7 +207,7 @@ sub gpp_check () {
     my $unknown_files = 0;
     
     if (! -e $name) {
-        print $gpp_name.": $name does not exists.\n" if not $hook;
+        print $gpp_name.": $name does not exist.\n" if not $hook;
         print "use '".$gpp_name." --save' to initialize it.\n" if not $hook;
         return 1;
     }
@@ -227,7 +227,7 @@ sub gpp_check () {
             $result |= check_mode($file, $mode);
             $result |= check_ids($file, $uid, $gid);
         } else {
-            printf "WARNING: file '%s' does not exists\n", $file if not $hook;
+            printf "WARNING: file '%s' does not exist\n", $file if not $hook;
         }
     }
     
@@ -314,7 +314,7 @@ sub gpp_restore () {
     my $result = 0;
     
     if (! -e $name) {
-        print $gpp_name.": $name does not exists.\n";
+        print $gpp_name.": $name does not exist.\n";
         print "use '".$gpp_name." --save' to initialize it.\n";
         exit 0
     }
@@ -345,7 +345,7 @@ sub gpp_restore () {
                 $result |= check_mode($file, $restore_mode);
             }
         } else {
-            printf "WARNING: file '%s' does not exists\n", $file;
+            printf "WARNING: file '%s' does not exist\n", $file;
         }
     }
     
